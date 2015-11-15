@@ -1520,22 +1520,44 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     colorsRgb = None
     colorsAlpha = None
     # In vertex colors layer search if the name ends in "_RGB" or "_ALPHA"
-    for vertexColors in mesh.tessface_vertex_colors:
-        if not colorsRgb and vertexColors.name.endswith("_RGB"):
-            colorsRgb = vertexColors.data
-        if not colorsAlpha and vertexColors.name.endswith("_ALPHA"):
-            colorsAlpha = vertexColors.data
-    # If still we don't have RGB, try the current vertex color layer selected
-    if not colorsRgb and mesh.tessface_vertex_colors.active:
-        colorsRgb = mesh.tessface_vertex_colors.active.data
-    # If still we don't have RGB, try the first vertex color layer in Blender
-    if not colorsRgb and mesh.tessface_vertex_colors:
-        colorsRgb = mesh.tessface_vertex_colors[0].data
-    if tOptions.doGeometryCol and not colorsRgb:
-        log.warning("Object {:s} has no rgb color data".format(meshObj.name))
-    if tOptions.doGeometryColAlpha and not colorsAlpha:
-        log.warning("Object {:s} has no alpha color data. Append _ALPHA to the color layer name".format(meshObj.name))
-
+    numVertexColChannels = len(mesh.tessface_vertex_colors)
+    separatedVColChannels = False
+    log.warning("find {:d} separated vertex color channels".format(numVertexColChannels))
+    if (numVertexColChannels == 3 or numVertexColChannels == 4 ):
+        log.warning("find {:d} separated vertex color channels".format(numVertexColChannels))
+        separatedVColChannels = True
+        rChannel = None
+        gChannel = None
+        bChannel = None
+        aChannel = None
+        for vertexColors in mesh.tessface_vertex_colors:
+            if not rChannel and vertexColors.name.endswith("R"):
+                rChannel = vertexColors.data
+            if not gChannel and vertexColors.name.endswith("G"):
+                gChannel = vertexColors.data
+            if not bChannel and vertexColors.name.endswith("B"):
+                bChannel = vertexColors.data
+            if not aChannel and vertexColors.name.endswith("A"):
+                aChannel = vertexColors.data
+        
+        
+        
+    if not separatedVColChannels:
+        for vertexColors in mesh.tessface_vertex_colors:
+            if not colorsRgb and vertexColors.name.endswith("_RGB"):
+                colorsRgb = vertexColors.data
+            if not colorsAlpha and vertexColors.name.endswith("_ALPHA"):
+                colorsAlpha = vertexColors.data
+        # If still we don't have RGB, try the current vertex color layer selected
+        if not colorsRgb and mesh.tessface_vertex_colors.active:
+            colorsRgb = mesh.tessface_vertex_colors.active.data
+        # If still we don't have RGB, try the first vertex color layer in Blender
+        if not colorsRgb and mesh.tessface_vertex_colors:
+            colorsRgb = mesh.tessface_vertex_colors[0].data
+        if tOptions.doGeometryCol and not colorsRgb:
+            log.warning("Object {:s} has no rgb color data".format(meshObj.name))
+        if tOptions.doGeometryColAlpha and not colorsAlpha:
+            log.warning("Object {:s} has no alpha color data. Append _ALPHA to the color layer name".format(meshObj.name))
     if tOptions.doMaterials:
         if scene.render.engine == 'CYCLES':
             log.warning("Cycles render engine not supported")
@@ -1566,11 +1588,33 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         faceUv2 = uvs2 and uvs2[face.index]
 
         # Get face 4 vertices colors
-        fcol = colorsRgb and colorsRgb[face.index]
-        faceRgbColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)
-        fcol = colorsAlpha and colorsAlpha[face.index]
-        faceAlphaColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)
-
+        if not separatedVColChannels:
+            fcol = colorsRgb and colorsRgb[face.index]
+            faceRgbColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)
+            #print(faceRgbColor) // ((color3), (color3), (color3), (color3))
+            #print("\n")
+            
+            fcol = colorsAlpha and colorsAlpha[face.index]
+            faceAlphaColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)
+        else:
+            fRcol = rChannel and rChannel[face.index]
+            fGcol = gChannel and gChannel[face.index]
+            fBcol = bChannel and bChannel[face.index]
+            fAcol = aChannel and aChannel[face.index]
+            mixedColor = []
+            if (fRcol and fGcol and fBcol and fAcol):
+                mixedColor = [Color((fRcol.color1[0], fGcol.color1[1], fBcol.color1[2])), \
+                            Color((fRcol.color2[0], fGcol.color2[1], fBcol.color2[2])), \
+                            Color((fRcol.color3[0], fGcol.color3[1], fBcol.color3[2])), \
+                            Color((fRcol.color4[0], fGcol.color4[1], fBcol.color4[2]))]
+            #elif (fRcol and fGcol and fBcol):
+            #    mixedColor = ([fRcol.color1[0], fGcol.color1[1], fBcol.color1[2], [1.0f, 1.0f, 1.0f]], \
+            #                [fRcol.color2[0], fGcol.color2[1], fBcol.color2[2], [1.0f, 1.0f, 1.0f]], \
+            #                [fRcol.color3[0], fGcol.color3[1], fBcol.color3[2], [1.0f, 1.0f, 1.0f]], \
+            #                [fRcol.color4[0], fGcol.color4[1], fBcol.color4[2], [1.0f, 1.0f, 1.0f])
+            #faceRgbColor = [mixedColor[0], mixedColor[1], mixedColor[2], [1.0, 1.0, 1.0]]
+            faceRgbColor = [mixedColor[0], mixedColor[1], mixedColor[2], mixedColor[3]]
+            faceAlphaColor = None
         # Get the face material
         # If no material is associated then face.material_index is 0 but mesh.materials
         # is not None
@@ -1713,7 +1757,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                         # Approx 255*float to the closest int
                         color[:3] = ( int(round(rgb.r * 255.0)), 
                                       int(round(rgb.g * 255.0)), 
-                                      int(round(rgb.b * 255.0)) )
+                                      int(round(rgb.b * 255.0)))
                     if faceAlphaColor:
                         # For Alpha use Value of HSV
                         alpha = faceAlphaColor[i]
