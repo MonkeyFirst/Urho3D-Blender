@@ -96,7 +96,8 @@ class TVertex:
         #return (self.__dict__ == other.__dict__)
         return (self.pos == other.pos and 
                 self.normal == other.normal and 
-                self.uv == other.uv)
+                self.uv == other.uv and 
+                self.color == other.color)
 
     def isEqual(self, other):
         # TODO: compare floats with a epsilon margin?
@@ -110,6 +111,9 @@ class TVertex:
             hashValue ^= hash(self.normal.x) ^ hash(self.normal.y) ^ hash(self.normal.z)
         if self.uv:
             hashValue ^= hash(self.uv.x) ^ hash(self.uv.y)
+        #added for paint w 4ch
+        if self.color:
+            hashValue ^= hash(self.color[0]) ^ hash(self.color[1]) ^ hash(self.color[2]) ^ hash(self.color[3])
         return hashValue
     
     def __str__(self):
@@ -1443,8 +1447,11 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     
     # Create a Mesh datablock with modifiers applied
     # (note: do not apply if not needed, it loses precision)
-    mesh = meshObj.to_mesh(scene, tOptions.applyModifiers, tOptions.applySettings)
+    mesh = meshObj.to_mesh(scene, tOptions.applyModifiers, tOptions.applySettings, True)
     
+    # Recalculate normals
+    mesh.update(calc_edges = True, calc_tessface = True)
+        
     log.info("Decomposing mesh: {:s} ({:d} vertices)".format(meshObj.name, len(mesh.vertices)) )
     
     # If we use the object local origin (orange dot) we don't need transformations
@@ -1522,14 +1529,15 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     # In vertex colors layer search if the name ends in "_RGB" or "_ALPHA"
     numVertexColChannels = len(mesh.tessface_vertex_colors)
     separatedVColChannels = False
-    log.warning("find {:d} separated vertex color channels".format(numVertexColChannels))
-    if (numVertexColChannels == 3 or numVertexColChannels == 4 ):
+    #log.warning("find {:d} separated vertex color channels".format(numVertexColChannels))
+    if (numVertexColChannels > 2 ):
         log.warning("find {:d} separated vertex color channels".format(numVertexColChannels))
         separatedVColChannels = True
         rChannel = None
         gChannel = None
         bChannel = None
         aChannel = None
+        mixChannel = None
         for vertexColors in mesh.tessface_vertex_colors:
             if not rChannel and vertexColors.name.endswith("R"):
                 rChannel = vertexColors.data
@@ -1539,8 +1547,6 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
                 bChannel = vertexColors.data
             if not aChannel and vertexColors.name.endswith("A"):
                 aChannel = vertexColors.data
-        
-        
         
     if not separatedVColChannels:
         for vertexColors in mesh.tessface_vertex_colors:
@@ -1590,10 +1596,7 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
         # Get face 4 vertices colors
         if not separatedVColChannels:
             fcol = colorsRgb and colorsRgb[face.index]
-            faceRgbColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)
-            #print(faceRgbColor) // ((color3), (color3), (color3), (color3))
-            #print("\n")
-            
+            faceRgbColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)            
             fcol = colorsAlpha and colorsAlpha[face.index]
             faceAlphaColor = fcol and (fcol.color1, fcol.color2, fcol.color3, fcol.color4)
         else:
@@ -1601,20 +1604,18 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
             fGcol = gChannel and gChannel[face.index]
             fBcol = bChannel and bChannel[face.index]
             fAcol = aChannel and aChannel[face.index]
+            
             mixedColor = []
-            if (fRcol and fGcol and fBcol and fAcol):
+            if (fRcol and fGcol and fBcol):
                 mixedColor = [Color((fRcol.color1[0], fGcol.color1[1], fBcol.color1[2])), \
                             Color((fRcol.color2[0], fGcol.color2[1], fBcol.color2[2])), \
                             Color((fRcol.color3[0], fGcol.color3[1], fBcol.color3[2])), \
                             Color((fRcol.color4[0], fGcol.color4[1], fBcol.color4[2]))]
-            #elif (fRcol and fGcol and fBcol):
-            #    mixedColor = ([fRcol.color1[0], fGcol.color1[1], fBcol.color1[2], [1.0f, 1.0f, 1.0f]], \
-            #                [fRcol.color2[0], fGcol.color2[1], fBcol.color2[2], [1.0f, 1.0f, 1.0f]], \
-            #                [fRcol.color3[0], fGcol.color3[1], fBcol.color3[2], [1.0f, 1.0f, 1.0f]], \
-            #                [fRcol.color4[0], fGcol.color4[1], fBcol.color4[2], [1.0f, 1.0f, 1.0f])
-            #faceRgbColor = [mixedColor[0], mixedColor[1], mixedColor[2], [1.0, 1.0, 1.0]]
+                 
             faceRgbColor = [mixedColor[0], mixedColor[1], mixedColor[2], mixedColor[3]]
             faceAlphaColor = None
+            if fAcol:
+                faceAlphaColor = fAcol and (fAcol.color1, fAcol.color2, fAcol.color3, fAcol.color4)
         # Get the face material
         # If no material is associated then face.material_index is 0 but mesh.materials
         # is not None
