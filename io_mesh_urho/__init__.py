@@ -428,7 +428,7 @@ class UrhoExportSettings(bpy.types.PropertyGroup):
                      ('Y_PLUS',  "Back (+Y +Z) *", ""),
                      ('Z_MINUS', "Bottom (--Z --Y)", ""),
                      ('Z_PLUS',  "Top (+Z +Y)", "")),
-            default = 'Y_PLUS')
+            default = 'X_PLUS')
             
     maxbones = EnumProperty(
             name = "Max bones",

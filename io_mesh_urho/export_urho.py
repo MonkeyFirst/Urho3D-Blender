@@ -55,7 +55,7 @@ BONES_PER_VERTEX    = 4
 #--------------------
 
 # Max difference between floats to be equal
-EPSILON = 1e-6
+EPSILON = 1e-7
 
 # Max difference between floats to be equal
 INFINITY = float("+inf")

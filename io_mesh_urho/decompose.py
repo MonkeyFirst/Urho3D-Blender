@@ -1521,8 +1521,10 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     if tOptions.doGeometryUV and not uvs:
         log.warning("Object {:s} has no UV data".format(meshObj.name))
     if tOptions.doGeometryUV2 and not uvs2:
-        log.warning("Object {:s} has no texture with UV2 data. Append _UV2 to the texture slot name".format(meshObj.name))
-    
+        # If still we don't have UV2, try to get second UV map in current mesh
+        uvs2 = mesh.tessface_uv_textures[1].data
+        if not uvs2:
+            log.warning("Object {:s} has no texture with UV2 data. Append _UV2 to the texture slot name".format(meshObj.name))
     # Check if the mesh has vertex color data
     colorsRgb = None
     colorsAlpha = None
