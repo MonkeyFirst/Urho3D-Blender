@@ -371,6 +371,7 @@ class TOptions:
         self.doMorphUV = True
         self.doOptimizeIndices = True
         self.doMaterials = True
+        self.forceUsingUv0Uv1 = True
         
 
 #--------------------
@@ -453,28 +454,29 @@ def GenerateTangents(tLodLevels, tVertexList, errorsMem):
             y1 = vertex2.pos.y - vertex1.pos.y
             z1 = vertex2.pos.z - vertex1.pos.z
 
-            u1 = vertex2.uv.x - vertex1.uv.x
-            v1 = vertex2.uv.y - vertex1.uv.y
+            u1 = 0.0 + vertex2.uv.x - vertex1.uv.x
+            v1 = 0.0 + vertex2.uv.y - vertex1.uv.y
 
             # Second equation: [x2, y2, z2] = Tangent * u2 + BiTangent * v2
             x2 = vertex3.pos.x - vertex1.pos.x
             y2 = vertex3.pos.y - vertex1.pos.y
             z2 = vertex3.pos.z - vertex1.pos.z
 
-            u2 = vertex3.uv.x - vertex1.uv.x
-            v2 = vertex3.uv.y - vertex1.uv.y
+            u2 = 0.0 + vertex3.uv.x - vertex1.uv.x
+            v2 = 0.0 + vertex3.uv.y - vertex1.uv.y
 
             # Determinant of the matrix [u1 v1; u2 v2]
-            d = u1 * v2 - u2 * v1
+            d = 0.0 + u1 * v2 - u2 * v1
             
             # If the determinant is zero then the points (0,0), (u1,v1), (u2,v2) are in line, this means
             # the area on the UV map of this triangle is null. This is an error, we must skip this triangle.
-            if d == 0:
+            if (d == 0.0):
                 if nullUvIndices is not None:
                     nullUvIndices.add(vertex1.blenderIndex)
                     nullUvIndices.add(vertex2.blenderIndex)
                     nullUvIndices.add(vertex3.blenderIndex)
                 invalidUV = True
+                #d = 1.0
                 continue
 
             t = Vector( ((v2 * x1 - v1 * x2) / d, (v2 * y1 - v1 * y2) / d, (v2 * z1 - v1 * z2) / d) )
@@ -1495,36 +1497,47 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     # Check if the mesh has UV data
     uvs = None
     uvs2 = None
-    # In every texture of every material search if the name ends in "_UV1" or "_UV2",
-    # search also in names of the UV maps
-    for material in mesh.materials:
-        if not material:
-            continue
-        for texture in material.texture_slots:
-            if not texture or texture.texture_coords != "UV":
-                continue
-            tex = texture.name
-            uvMap = texture.uv_layer
-            if not tex or not uvMap or not (uvMap in mesh.uv_textures.keys()):
-                continue
-            if tex.endswith("_UV") or uvMap.endswith("_UV") or \
-               tex.endswith("_UV1") or uvMap.endswith("_UV1"):
-                uvs = mesh.tessface_uv_textures[uvMap].data
-            elif tex.endswith("_UV2") or uvMap.endswith("_UV2"):
-                uvs2 = mesh.tessface_uv_textures[uvMap].data
-    # If still we don't have UV1, try the current UV map selected
-    if not uvs and mesh.tessface_uv_textures.active:
-        uvs = mesh.tessface_uv_textures.active.data
-    # If still we don't have UV1, try the first UV map in Blender
-    if not uvs and mesh.tessface_uv_textures:
+    
+    if (tOptions.forceUsingUv0Uv1):
         uvs = mesh.tessface_uv_textures[0].data
-    if tOptions.doGeometryUV and not uvs:
-        log.warning("Object {:s} has no UV data".format(meshObj.name))
-    if tOptions.doGeometryUV2 and not uvs2:
-        # If still we don't have UV2, try to get second UV map in current mesh
         uvs2 = mesh.tessface_uv_textures[1].data
-        if not uvs2:
-            log.warning("Object {:s} has no texture with UV2 data. Append _UV2 to the texture slot name".format(meshObj.name))
+        
+        if tOptions.doGeometryUV and not uvs:
+            log.warning("Object {:s} has no UV data".format(meshObj.name))
+        if tOptions.doGeometryUV2 and not uvs2:
+            log.warning("Object {:s} has no UV2 data".format(meshObj.name))
+    else:
+        # In every texture of every material search if the name ends in "_UV1" or "_UV2",
+        # search also in names of the UV maps
+        for material in mesh.materials:
+            if not material:
+                continue
+            for texture in material.texture_slots:
+                if not texture or texture.texture_coords != "UV":
+                    continue
+                tex = texture.name
+                uvMap = texture.uv_layer
+                if not tex or not uvMap or not (uvMap in mesh.uv_textures.keys()):
+                    continue
+                if tex.endswith("_UV") or uvMap.endswith("_UV") or \
+                   tex.endswith("_UV1") or uvMap.endswith("_UV1"):
+                    uvs = mesh.tessface_uv_textures[uvMap].data
+                elif tex.endswith("_UV2") or uvMap.endswith("_UV2"):
+                    uvs2 = mesh.tessface_uv_textures[uvMap].data
+        # If still we don't have UV1, try the current UV map selected
+        if not uvs and mesh.tessface_uv_textures.active:
+            uvs = mesh.tessface_uv_textures.active.data
+        # If still we don't have UV1, try the first UV map in Blender
+        if not uvs and mesh.tessface_uv_textures:
+            uvs = mesh.tessface_uv_textures[0].data
+        
+        if tOptions.doGeometryUV and not uvs:
+            log.warning("Object {:s} has no UV data".format(meshObj.name))
+        if tOptions.doGeometryUV2 and not uvs2:
+            # If still we don't have UV2, try to get second UV map in current mesh
+            uvs2 = mesh.tessface_uv_textures[1].data
+            if not uvs2:
+                log.warning("Object {:s} has no texture with UV2 data. Append _UV2 to the texture slot name".format(meshObj.name))
     # Check if the mesh has vertex color data
     colorsRgb = None
     colorsAlpha = None
@@ -1740,13 +1753,15 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
             if tOptions.doGeometryUV:
                 if faceUv:
                     uv = faceUv.uv[i]
-                    tVertex.uv = Vector((uv[0], 1.0 - uv[1]))
+                    tVertex.uv = Vector((0.0 + uv[0], 1.0 - uv[1]))
+                    #tVertex.uv = Vector((uv[0], uv[1]))
                 elif tOptions.doForceElements:
                     tVertex.uv = Vector((0.0, 0.0))
             if tOptions.doGeometryUV2:
                 if faceUv2:
                     uv2 = faceUv2.uv[i]
-                    tVertex.uv2 = Vector((uv2[0], 1.0 - uv2[1]))
+                    tVertex.uv2 = Vector((0.0 + uv2[0], 1.0 - uv2[1]))
+                    #tVertex.uv2 = Vector((uv2[0], uv2[1]))
                 elif tOptions.doForceElements:
                     tVertex.uv2 = Vector((0.0, 0.0))
 

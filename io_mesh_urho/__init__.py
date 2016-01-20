@@ -336,6 +336,7 @@ class UrhoExportSettings(bpy.types.PropertyGroup):
         self.shape = 'TRIANGLEMESH'
         self.maxbones = '64'
         self.nodespos = False
+        self.forceUsingUv0Uv1 = True
 
     # Revert the output paths back to their default values
     def reset_paths(self, context, forced):
@@ -738,7 +739,12 @@ class UrhoExportSettings(bpy.types.PropertyGroup):
             name = "Save node position ( select front view as back for this )",
             description = "Save node's world position when doing export",
             default = False)
-
+            
+    forceUsingUVs = BoolProperty(
+            name = "Force using object data UVs",
+            description = "Force using ObjectData UVmaps 0 and 1 instead texture slots _UV _UV2",
+            default = True)
+            
     bonesGlobalOrigin = BoolProperty(name = "Bones global origin", default = False)
     actionsGlobalOrigin = BoolProperty(name = "Actions global origin", default = False)
     
@@ -918,7 +924,10 @@ class UrhoExportRenderPanel(bpy.types.Panel):
             row = box.row()
             row.separator()
             row.prop(settings, "strictLods")
-
+            
+        row = box.row()
+        row.prop(settings, "forceUsingUVs")
+        
         box = layout.box()
 
         row = box.row()
@@ -985,7 +994,7 @@ class UrhoExportRenderPanel(bpy.types.Panel):
             row.separator()
             row.prop(settings, "geometryCol")
             row.prop(settings, "geometryColAlpha")
-        
+
         row = box.row()
         row.enabled = settings.geometries
         row.prop(settings, "morphs")
@@ -1265,6 +1274,7 @@ def ExecuteUrhoExport(context):
     tOptions.doMaterials = settings.materials or settings.textures
     tOptions.bonesGlobalOrigin = settings.bonesGlobalOrigin
     tOptions.actionsGlobalOrigin = settings.actionsGlobalOrigin
+    tOptions.forceUsingUv0Uv1 = settings.forceUsingUVs
 
     tOptions.orientation = None # ='Y_PLUS'
     if settings.orientation == 'X_PLUS':
@@ -1290,7 +1300,6 @@ def ExecuteUrhoExport(context):
     sOptions.usegravity = settings.usegravity
     sOptions.orientation = settings.orientation
     sOptions.nodespos = settings.nodespos
-    
     sOptions.mergeObjects = settings.merge
     sOptions.doIndividualPrefab = settings.individualPrefab
     sOptions.doCollectivePrefab = settings.collectivePrefab
