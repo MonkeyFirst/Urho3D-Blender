@@ -1499,8 +1499,12 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     uvs2 = None
     
     if (tOptions.forceUsingUv0Uv1):
-        uvs = mesh.tessface_uv_textures[0].data
-        uvs2 = mesh.tessface_uv_textures[1].data
+        if (mesh.tessface_uv_textures):
+            log.warning("Object {:s} has UVs {:d}".format(meshObj.name, len(mesh.tessface_uv_textures)))
+            if (len(mesh.tessface_uv_textures) > 0):
+                uvs = mesh.tessface_uv_textures[0].data
+            if (len(mesh.tessface_uv_textures) > 1):
+                uvs2 = mesh.tessface_uv_textures[1].data
         
         if tOptions.doGeometryUV and not uvs:
             log.warning("Object {:s} has no UV data".format(meshObj.name))
@@ -1876,17 +1880,21 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     if missingBones:
         log.warning("These parent bones are missing in the armature: {:s}".format( ", ".join(missingBones) ))
     
-    # Generate tangents for the last LOD of every geometry with new vertices
-    if tOptions.doGeometryTan:
-        lodLevels = []
-        for geometryIndex in updatedGeometryIndices:
-            geometry = geometriesList[geometryIndex]
-            # Only the last LOD was modified (even if it wasn't a new LOD)
-            lodLevel = geometry.lodLevels[-1]
-            log.info("Generating tangents on {:d} indices for {:s} Geometry{:d}"
-                    .format(len(lodLevel.indexSet), meshObj.name, geometryIndex) )
-            lodLevels.append(lodLevel)
-        GenerateTangents(lodLevels, verticesList, errorsMem)
+    if not uvs and tOptions.doGeometryTan:
+        log.warning("Object {:s} has no UV data. For generate Tangents you need add at last one UVmap".format(meshObj.name))
+    else:
+        # Generate tangents for the last LOD of every geometry with new vertices
+        if tOptions.doGeometryTan:
+            lodLevels = []
+            for geometryIndex in updatedGeometryIndices:
+                geometry = geometriesList[geometryIndex]
+                # Only the last LOD was modified (even if it wasn't a new LOD)
+                lodLevel = geometry.lodLevels[-1]
+                log.info("Generating tangents on {:d} indices for {:s} Geometry{:d}"
+                        .format(len(lodLevel.indexSet), meshObj.name, geometryIndex) )
+                lodLevels.append(lodLevel)
+            GenerateTangents(lodLevels, verticesList, errorsMem)
+            
             
     # Optimize vertex index buffer for the last LOD of every geometry with new vertices
     if tOptions.doOptimizeIndices:
