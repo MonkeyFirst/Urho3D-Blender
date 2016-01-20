@@ -1500,7 +1500,6 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
     
     if (tOptions.forceUsingUv0Uv1):
         if (mesh.tessface_uv_textures):
-            log.warning("Object {:s} has UVs {:d}".format(meshObj.name, len(mesh.tessface_uv_textures)))
             if (len(mesh.tessface_uv_textures) > 0):
                 uvs = mesh.tessface_uv_textures[0].data
             if (len(mesh.tessface_uv_textures) > 1):
