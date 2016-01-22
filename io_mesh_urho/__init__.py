@@ -319,7 +319,8 @@ class UrhoExportSettings(bpy.types.PropertyGroup):
         self.geometryUV2 = False
         self.geometryTan = False
         self.geometryWei = False
-
+        self.objectIndex = False
+        
         self.morphs = False
         self.morphNor = True
         self.morphTan = False
@@ -334,7 +335,7 @@ class UrhoExportSettings(bpy.types.PropertyGroup):
         self.scenePrefab = False
         self.physics = 'INDIVIDUAL'
         self.shape = 'TRIANGLEMESH'
-        self.maxbones = '64'
+        self.maxbones = '128'
         self.nodespos = False
         self.forceUsingUv0Uv1 = True
 
@@ -656,6 +657,11 @@ class UrhoExportSettings(bpy.types.PropertyGroup):
     geometryWei = BoolProperty(
             name = "Weights",
             description = "Within geometry export vertex bones weights (Skeletons needed)",
+            default = False)
+    
+    objectIndex = BoolProperty(
+            name = "Object index",
+            description = "Within geometry export Object index for each vertex for fake instasing (options: Merge and Global origin are needed)",
             default = False)
 
     morphs = BoolProperty(
@@ -994,7 +1000,13 @@ class UrhoExportRenderPanel(bpy.types.Panel):
             row.separator()
             row.prop(settings, "geometryCol")
             row.prop(settings, "geometryColAlpha")
-
+            
+            row = box.row()
+            row.separator()
+            col = row.column()
+            col.enabled = (settings.merge and (settings.origin == 'GLOBAL')) 
+            col.prop(settings, "objectIndex")
+            
         row = box.row()
         row.enabled = settings.geometries
         row.prop(settings, "morphs")
@@ -1275,6 +1287,7 @@ def ExecuteUrhoExport(context):
     tOptions.bonesGlobalOrigin = settings.bonesGlobalOrigin
     tOptions.actionsGlobalOrigin = settings.actionsGlobalOrigin
     tOptions.forceUsingUv0Uv1 = settings.forceUsingUVs
+    tOptions.doObjectIndex = settings.objectIndex
 
     tOptions.orientation = None # ='Y_PLUS'
     if settings.orientation == 'X_PLUS':

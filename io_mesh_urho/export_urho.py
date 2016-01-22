@@ -33,6 +33,7 @@ ELEMENT_BWEIGHTS    = 0x0100
 ELEMENT_BINDICES    = 0x0200
 
 ELEMENT_BLEND       = 0x0300
+ELEMENT_OBJECTINDEX = 0x2000
 
 MORPH_ELEMENTS      = ELEMENT_POSITION | ELEMENT_NORMAL | ELEMENT_TANGENT
 
@@ -144,7 +145,8 @@ class VertexMaskError(Exception):
                           ELEMENT_CUBE_UV2: "Cube UV2",
                           ELEMENT_TANGENT: "Tangent",
                           ELEMENT_BWEIGHTS: "Blend weights",
-                          ELEMENT_BINDICES: "Blend indices" }
+                          ELEMENT_BINDICES: "Blend indices",
+                          ELEMENT_OBJECTINDEX: "Object index" }
 
     def __str__(self):
         diff = self.oldMask ^ self.disruptMask
@@ -214,11 +216,17 @@ class UrhoVertex:
             for i, t in enumerate(sortedList):
                 self.weights[i] = (t[0], t[1] / totalWeight)
             self.mask |= ELEMENT_BLEND
+            
+        # Object index
+        self.objectIndex = tVertex.objectIndex
+        if tVertex.objectIndex > -1:
+            self.mask |= ELEMENT_OBJECTINDEX
 
     # used by the function index() of lists
     def __eq__(self, other):
         return (self.pos == other.pos and self.normal == other.normal and 
-                self.color == other.color and self.uv == other.uv)
+                self.color == other.color and self.uv == other.uv and 
+                self.objectIndex == other.objectIndex)
 
     # compare position, normal, color, UV, UV2 with another vertex, returns True is the error is insignificant
     def AlmostEqual(self, other):
@@ -251,8 +259,11 @@ class UrhoVertex:
         hashValue = 0
         if self.pos:
             hashValue ^= hash(self.pos.x) ^ hash(self.pos.y) ^ hash(self.pos.z)
+        # if vertex used for separated instance with same geometry in same world position it still unique
+        if self.objectIndex >-1:
+            hashValue ^= hash(self.objectIndex + 1)       
         return hashValue
-            
+
     # used by morph vertex calculations (see AnimatedModel::ApplyMorph)
     def subtract(self, other, mask):
         if mask & ELEMENT_POSITION:
@@ -278,6 +289,11 @@ class UrhoVertexBuffer:
     # Check if a vertex is compatible with this buffer or has different elements
     def updateMask(self, vertexMask):
         # Update buffer mask
+        oldVertexMask = vertexMask
+        # if vertex use object indexing ingnore it for comparsion time
+        if (vertexMask & ELEMENT_OBJECTINDEX):    
+            vertexMask = vertexMask ^ ELEMENT_OBJECTINDEX
+        
         if self.elementMask is None:
             self.elementMask = vertexMask
         elif self.elementMask != vertexMask:
@@ -286,6 +302,8 @@ class UrhoVertexBuffer:
             if (self.elementMask & vertexMask) == self.elementMask:
                 self.elementMask = vertexMask
             raise VertexMaskError(oldMask, vertexMask)
+        
+        vertexMask = oldVertexMask
 
 class UrhoIndexBuffer:
     def __init__(self):
@@ -565,6 +583,9 @@ def UrhoWriteModel(model, filename):
             if mask & ELEMENT_BINDICES:
                 for i in range(BONES_PER_VERTEX):
                     fw.writeUByte(vertex.weights[i][0])
+            if mask & ELEMENT_OBJECTINDEX:
+                fw.writeUInt(vertex.objectIndex)
+                #log.warning("object index writed {:d}".format(vertex.objectIndex))
 
     # Number of index buffers
     fw.writeUInt(len(model.indexBuffers))

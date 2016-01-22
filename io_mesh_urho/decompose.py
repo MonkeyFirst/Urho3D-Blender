@@ -74,6 +74,8 @@ class TVertex:
         self.bitangent = None
         # Bones weights: list of tuple(boneIndex, weight)
         self.weights = None
+        # Object indexing for fake instasing
+        self.objectIndex = -1
 
     # returns True is this vertex is a changed morph of vertex 'other'
     def isMorphed(self, other):
@@ -97,7 +99,8 @@ class TVertex:
         return (self.pos == other.pos and 
                 self.normal == other.normal and 
                 self.uv == other.uv and 
-                self.color == other.color)
+                self.color == other.color and 
+                self.objectIndex == other.objectIndex)
 
     def isEqual(self, other):
         # TODO: compare floats with a epsilon margin?
@@ -114,6 +117,10 @@ class TVertex:
         #added for paint w 4ch
         if self.color:
             hashValue ^= hash(self.color[0]) ^ hash(self.color[1]) ^ hash(self.color[2]) ^ hash(self.color[3])
+        #added for object indexes
+        if self.objectIndex > -1:
+            hashValue ^= hash(self.objectIndex + 1)
+        
         return hashValue
     
     def __str__(self):
@@ -131,6 +138,8 @@ class TVertex:
             s += "\n weights: "
             for w in self.weights:
                 s += "{:d} {:.3f}  ".format(w[0],w[1])
+        if self.objectIndex:
+                s += "\n objectIndex {:d} ".format(self.objectIndex)
         return s
 
 # Geometry LOD level class
@@ -372,6 +381,7 @@ class TOptions:
         self.doOptimizeIndices = True
         self.doMaterials = True
         self.forceUsingUv0Uv1 = True
+        self.doObjectIndex = False
         
 
 #--------------------
@@ -1435,7 +1445,7 @@ def DecomposeActions(scene, armatureObj, tData, tOptions):
 # Decompose geometries and morphs
 #---------------------------------
 
-def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
+def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem, objIndex):
 
     verticesList = tData.verticesList
     geometriesList = tData.geometriesList
@@ -1743,6 +1753,10 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem):
             
             # Set Blender index
             tVertex.blenderIndex = (meshIndex, vertexIndex)
+            
+            # Object Indexing for fake instansing
+            if tOptions.doObjectIndex:
+                tVertex.objectIndex = objIndex
 
             # Set Vertex position
             if tOptions.doGeometryPos:
@@ -2076,6 +2090,7 @@ def Scan(context, tDataList, errorsMem, tOptions):
 
     # Gather objects
     meshes = []
+    objectIndex = 0
     for obj in objs:
         # Only meshes
         if obj.type != 'MESH':
@@ -2212,8 +2227,10 @@ def Scan(context, tDataList, errorsMem, tOptions):
         # Decompose geometries
         if tOptions.doGeometries:
             savedValue = SetRestPosePosition(context, armatureObj)
-            DecomposeMesh(scene, obj, tData, tOptions, errorsMem)
+            DecomposeMesh(scene, obj, tData, tOptions, errorsMem, objectIndex)
             RestorePosePosition(armatureObj, savedValue)
+            
+        objectIndex = objectIndex + 1
 
 #-----------------------------------------------------------------------------
 
