@@ -1258,22 +1258,28 @@ def UrhoExport(tData, uExportOptions, uExportData, errorsMem):
         technique = "NoTexture"
         if tMaterial.diffuseTexName:
             technique = "Diff"
-            if tMaterial.normalTexName:
-                technique += "Normal"
-            if tMaterial.specularTexName:
-                technique += "Spec"
-            # Emission map, light map and AO (Ambient light map) use the same
-            # emission texture slot, we have to pick one
-            if tMaterial.emitTexName:
-                technique += "Emissive"
-                emissiveTexture = tMaterial.emitTexName
-                isEmissive = True
-            elif tMaterial.ambientLightTexName:
-                technique += "AO"
-                emissiveTexture = tMaterial.ambientLightTexName
-            elif tMaterial.lightmapTexName:
-                technique += "LightMap"
-                emissiveTexture = tMaterial.lightmapTexName
+            if tMaterial.isUnlit:
+                technique += "Unlit"
+            else:
+                if tMaterial.normalTexName:
+                    technique += "Normal"
+                if tMaterial.specularTexName:
+                    technique += "Spec"
+                # Emission map, light map and AO (Ambient light map) use the same
+                # emission texture slot, we have to pick one
+                if tMaterial.emitTexName:
+                    technique += "Emissive"
+                    emissiveTexture = tMaterial.emitTexName
+                    isEmissive = True
+                elif tMaterial.ambientLightTexName:
+                    technique += "AO"
+                    emissiveTexture = tMaterial.ambientLightTexName
+                elif tMaterial.lightmapTexName:
+                    technique += "LightMap"
+                    emissiveTexture = tMaterial.lightmapTexName
+        else:
+            if tMaterial.isUnlit:
+                technique += "Unlit"
         if tMaterial.opacity:
             technique += "Alpha";
             if tMaterial.alphaMask:

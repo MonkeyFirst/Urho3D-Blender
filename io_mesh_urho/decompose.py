@@ -239,6 +239,8 @@ class TMaterial:
         self.lightmapTexName = None
         # Ambient light map texture filename (light map modulated by ambient color)(no path)
         self.ambientLightTexName = None
+        # Is material Unlit
+        self.isUnlit = None
 
     def __eq__(self, other):
         if hasattr(other, 'name'):
@@ -1662,7 +1664,9 @@ def DecomposeMesh(scene, meshObj, tData, tOptions, errorsMem, objIndex):
             tMaterial.specularColor = material.specular_color
             tMaterial.specularIntensity = material.specular_intensity
             tMaterial.specularHardness = material.specular_hardness
-            tMaterial.twoSided = mesh.show_double_sided 
+            tMaterial.twoSided = mesh.show_double_sided
+            if material.use_shadeless:
+                tMaterial.isUnlit = True
             if material.use_transparency:
                 tMaterial.opacity = material.alpha
                 if material.transparency_method == 'MASK':
